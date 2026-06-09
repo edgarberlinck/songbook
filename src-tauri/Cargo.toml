@@ -1,0 +1,15 @@
+[package]
+name = "songbook"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "songbook_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.2", features = [] }
+
+[dependencies]
+songbook-core = { path = "core" }
+tauri = { version = "2.11.2", features = [] }
