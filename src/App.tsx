@@ -159,7 +159,8 @@ function App() {
   async function handleTranspose(semitones: number) {
     const transposed = await invoke<string>('transpose_content', { content: draft, semitones })
     setDraft(transposed)
-    setStatus(`Transposed ${semitones > 0 ? '+' : ''}${semitones} semitone`)
+    const unit = Math.abs(semitones) === 1 ? 'semitone' : 'semitones'
+    setStatus(`Transposed ${semitones > 0 ? '+' : ''}${semitones} ${unit}`)
   }
 
   const displayedSong = activeSong && draft === activeSong.content ? activeSong : previewSong
