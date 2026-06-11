@@ -19,4 +19,6 @@ tmp
 
 # IDE
 .idea
-songs/Space Oddity.chordpro
+*.chordpro
+*.sqlite3
+songs/*

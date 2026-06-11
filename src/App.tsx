@@ -70,7 +70,6 @@ function App() {
   const [activeSong, setActiveSong] = useState<SongDetail | null>(null);
   const [previewSong, setPreviewSong] = useState<SongDetail | null>(null);
   const [draft, setDraft] = useState("");
-  const [query, setQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("all");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -101,6 +100,7 @@ function App() {
     }
   });
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
   const editorScrollRef = useRef<HTMLTextAreaElement | null>(null);
   const previewScrollRef = useRef<HTMLDivElement | null>(null);
   const syncOriginRef = useRef<"editor" | "preview" | null>(null);
@@ -199,10 +199,6 @@ function App() {
     setShowFavoritesOnly((current) => !current);
   };
 
-  const toggleTagFilter = (tag: string) => {
-    setSelectedTag((current) => (current === tag ? "all" : tag));
-  };
-
   async function handleCreateSong() {
     const song = await invoke<SongDetail>("create_song");
     setStatus(`Created ${song.title}`);
@@ -242,37 +238,26 @@ function App() {
   }
 
   async function handleDeleteSelectedSongs() {
-    const idsToDelete = selectedIds.length
-      ? selectedIds
-      : activeSong
-        ? [activeSong.id]
-        : [];
-
-    if (!idsToDelete.length) {
-      setStatus("No songs selected for deletion");
+    if (!deleteConfirmPending) {
+      setDeleteConfirmPending(true);
       return;
     }
 
-    const confirmation = window.confirm(
-      `Delete ${idsToDelete.length} song${idsToDelete.length > 1 ? "s" : ""}? This cannot be undone.`,
-    );
-    if (!confirmation) {
-      return;
-    }
-
+    setDeleteConfirmPending(false);
     setDeleteLoading(true);
     try {
-      await Promise.all(idsToDelete.map((id) => invoke("delete_song", { id })));
+      await Promise.all(selectedIds.map((id) => invoke("delete_song", { id })));
 
-      const deleted = new Set(idsToDelete);
+      const deleted = new Set(selectedIds);
       const nextPreferred = library.songs.find(
         (song) => !deleted.has(song.id),
       )?.id;
       setRecentSongIds((current) => current.filter((id) => !deleted.has(id)));
       setSelectedIds(nextPreferred ? [nextPreferred] : []);
       setStatus(
-        `Deleted ${idsToDelete.length} song${idsToDelete.length > 1 ? "s" : ""}`,
+        `Deleted ${selectedIds.length} song${selectedIds.length > 1 ? "s" : ""}`,
       );
+      setShowLibraryModal(false);
       await refreshLibrary(nextPreferred);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -316,12 +301,14 @@ function App() {
   });
 
   const filteredSongs = useMemo(() => {
+    const normalized = libraryQuery.trim().toLowerCase();
     return [...library.songs]
       .filter((song) => !showFavoritesOnly || song.favorite)
       .filter(
         (song) => selectedTag === "all" || song.tags.includes(selectedTag),
       )
       .filter((song) => {
+        if (!normalized) return true;
         const haystack = [
           song.title,
           song.artist ?? "",
@@ -330,10 +317,10 @@ function App() {
         ]
           .join(" ")
           .toLowerCase();
-        return haystack.includes(query.trim().toLowerCase());
+        return haystack.includes(normalized);
       })
       .sort(sorters[sortBy]);
-  }, [library.songs, query, selectedTag, showFavoritesOnly, sortBy]);
+  }, [library.songs, libraryQuery, selectedTag, showFavoritesOnly, sortBy]);
 
   const recentSongs = useMemo(() => {
     const byId = new Map(library.songs.map((song) => [song.id, song]));
@@ -342,24 +329,6 @@ function App() {
       .filter((song): song is SongSummary => Boolean(song))
       .slice(0, 3);
   }, [library.songs, recentSongIds]);
-
-  const libraryModalSongs = useMemo(() => {
-    const normalized = libraryQuery.trim().toLowerCase();
-    return filteredSongs.filter((song) => {
-      if (!normalized) {
-        return true;
-      }
-      const haystack = [
-        song.title,
-        song.artist ?? "",
-        song.key ?? "",
-        song.tags.join(" "),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(normalized);
-    });
-  }, [filteredSongs, libraryQuery]);
 
   async function selectSong(id: string) {
     const song = await invoke<SongDetail>("load_song", { id });
@@ -441,134 +410,88 @@ function App() {
             </div>
           </div>
 
-          <div className="segmented">
-            <button
-              className={!showFavoritesOnly ? "active" : ""}
-              onClick={() => setShowFavoritesOnly(false)}
-            >
-              All Songs
-            </button>
-            <button
-              className={showFavoritesOnly ? "active" : ""}
-              onClick={toggleFavoriteFilter}
-            >
-              Favorites
-            </button>
-          </div>
+          {activeSong ? (
+            <section className="song-info">
+              <h3 className="song-info-title">{activeSong.title}</h3>
+              <p className="song-info-artist">
+                {activeSong.artist ?? "Unknown artist"}
+              </p>
+              <div className="song-info-meta">
+                {activeSong.key ? <span>Key {activeSong.key}</span> : null}
+                {activeSong.capo !== null ? (
+                  <span>Capo {activeSong.capo}</span>
+                ) : null}
+                {activeSong.tempo !== null ? (
+                  <span>{activeSong.tempo} bpm</span>
+                ) : null}
+                {activeSong.favorite ? <span>♥ Favorite</span> : null}
+              </div>
+              {activeSong.tags.length > 0 ? (
+                <div className="song-info-tags">
+                  {activeSong.tags.map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : (
+            <p className="song-info-empty">No song selected</p>
+          )}
 
-          <label className="search">
-            <span>Search</span>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Title, artist, key, tag"
-            />
-          </label>
-
-          <div className="controls-row">
-            <label>
-              <span>Sort</span>
-              <select
-                value={sortBy}
-                onChange={(event) =>
-                  setSortBy(event.target.value as keyof typeof sorters)
+          <section className="controls-section">
+            <div className="controls-grid">
+              <button onClick={() => void handleTranspose(-1)}>−1 semi</button>
+              <button onClick={() => void handleTranspose(1)}>+1 semi</button>
+              <button onClick={() => setShowChords((v) => !v)}>
+                {showChords ? "Hide chords" : "Show chords"}
+              </button>
+              <button onClick={() => setReadingMode((v) => !v)}>
+                {readingMode ? "Edit mode" : "Read mode"}
+              </button>
+              <button
+                onClick={() => setFontScale((v) => Math.max(0.8, v - 0.1))}
+              >
+                A−
+              </button>
+              <button
+                onClick={() => setFontScale((v) => Math.min(1.8, v + 0.1))}
+              >
+                A+
+              </button>
+              <button
+                onClick={() =>
+                  setTheme((v) => (v === "dark" ? "light" : "dark"))
                 }
               >
-                <option value="recent">Recently Modified</option>
-                <option value="title">Title</option>
-                <option value="artist">Artist</option>
-              </select>
-            </label>
-            <label>
-              <span>Tag</span>
-              <select
-                value={selectedTag}
-                onChange={(event) => setSelectedTag(event.target.value)}
-              >
-                <option value="all">All tags</option>
-                {library.availableTags.map((tag) => (
-                  <option key={tag} value={tag}>
-                    {tag}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+                {theme === "dark" ? "Light mode" : "Dark mode"}
+              </button>
+            </div>
+          </section>
 
-          <section className="library-section">
+          <section className="recent-section">
             <header>
               <strong>Recent</strong>
-              <div className="library-actions">
-                <span>{recentSongs.length} songs</span>
-                <button
-                  className="danger"
-                  onClick={() => void handleDeleteSelectedSongs()}
-                  disabled={deleteLoading}
-                >
-                  {deleteLoading ? "Deleting..." : "Delete selected"}
-                </button>
-              </div>
             </header>
             <ul className="song-list">
-              {recentSongs.map((song) => {
-                const active = activeSong?.id === song.id;
-                const selected = selectedIds.includes(song.id);
-                return (
-                  <li key={song.id}>
-                    <button
-                      className={`song-card ${active ? "active" : ""}`}
-                      onClick={() => void selectSong(song.id)}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={(event) => {
-                          event.stopPropagation();
-                          setSelectedIds((current) =>
-                            event.target.checked
-                              ? [...new Set([...current, song.id])]
-                              : current.filter((item) => item !== song.id),
-                          );
-                        }}
-                      />
-                      <div>
-                        <strong>{song.title}</strong>
-                        <span>{song.artist ?? "Unknown artist"}</span>
-                      </div>
-                      <small>
-                        {song.key ?? "—"} · {formatDate(song.lastModified)}
-                      </small>
-                    </button>
-                  </li>
-                );
-              })}
+              {recentSongs.map((song) => (
+                <li key={song.id}>
+                  <button
+                    className={`song-row ${activeSong?.id === song.id ? "active" : ""}`}
+                    onClick={() => void selectSong(song.id)}
+                  >
+                    <strong>{song.title}</strong>
+                    <span>{song.artist ?? "Unknown artist"}</span>
+                  </button>
+                </li>
+              ))}
             </ul>
           </section>
 
-          <section className="tags-section">
-            <header>Tags</header>
-            <div className="tags">
-              {library.availableTags.map((tag) => (
-                <button
-                  key={tag}
-                  className={selectedTag === tag ? "active" : ""}
-                  onClick={() => toggleTagFilter(tag)}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </section>
+          <p className="sidebar-status">{status}</p>
         </aside>
 
         <section className="workspace">
           <header className="toolbar">
-            <div>
-              <h1>{activeSong?.title ?? "Songbook"}</h1>
-              <p>
-                {activeSong?.artist ?? "Distraction-free writing and rehearsal"}
-              </p>
-            </div>
             <div className="toolbar-actions">
               <button
                 className="primary"
@@ -580,34 +503,11 @@ function App() {
               <button onClick={() => setShowImportModal(true)}>
                 Import song
               </button>
-              <button onClick={() => void handleTranspose(-1)}>−1</button>
-              <button onClick={() => void handleTranspose(1)}>+1</button>
-              <button onClick={() => setShowChords((value) => !value)}>
-                {showChords ? "Hide chords" : "Show chords"}
-              </button>
-              <button onClick={() => setReadingMode((value) => !value)}>
-                {readingMode ? "Editor mode" : "Reading mode"}
-              </button>
-              <button
-                onClick={() =>
-                  setTheme((value) => (value === "dark" ? "light" : "dark"))
-                }
-              >
-                {theme === "dark" ? "Light" : "Dark"} mode
-              </button>
               <button className="primary" onClick={() => void handleSave()}>
                 Save
               </button>
             </div>
           </header>
-
-          <div className="meta-strip">
-            <span>Selected: {selectedIds.length}</span>
-            <span>Capo: {activeSong?.capo ?? "—"}</span>
-            <span>Tempo: {activeSong?.tempo ?? "—"}</span>
-            <span>Zoom: {(fontScale * 100).toFixed(0)}%</span>
-            <span>{status}</span>
-          </div>
 
           <div className="split-view">
             <section className="pane editor-pane">
@@ -691,22 +591,67 @@ function App() {
             className="library-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <header>
+            <div className="library-modal-header">
               <h2>Library</h2>
-              <p>Pick a song to play.</p>
-            </header>
+              <span>{filteredSongs.length} songs</span>
+            </div>
 
-            <label className="search">
-              <span>Search library</span>
-              <input
-                value={libraryQuery}
-                onChange={(event) => setLibraryQuery(event.target.value)}
-                placeholder="Title, artist, key, tag"
-              />
-            </label>
+            <div className="library-modal-filters">
+              <div className="segmented">
+                <button
+                  className={!showFavoritesOnly ? "active" : ""}
+                  onClick={() => setShowFavoritesOnly(false)}
+                >
+                  All
+                </button>
+                <button
+                  className={showFavoritesOnly ? "active" : ""}
+                  onClick={toggleFavoriteFilter}
+                >
+                  Favorites
+                </button>
+              </div>
+              <div className="library-filter-row">
+                <label>
+                  <span>Sort</span>
+                  <select
+                    value={sortBy}
+                    onChange={(event) =>
+                      setSortBy(event.target.value as keyof typeof sorters)
+                    }
+                  >
+                    <option value="recent">Recently Modified</option>
+                    <option value="title">Title</option>
+                    <option value="artist">Artist</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Tag</span>
+                  <select
+                    value={selectedTag}
+                    onChange={(event) => setSelectedTag(event.target.value)}
+                  >
+                    <option value="all">All tags</option>
+                    {library.availableTags.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="search">
+                <span>Search</span>
+                <input
+                  value={libraryQuery}
+                  onChange={(event) => setLibraryQuery(event.target.value)}
+                  placeholder="Title, artist, key, tag"
+                />
+              </label>
+            </div>
 
             <ul className="library-modal-list">
-              {libraryModalSongs.map((song) => (
+              {filteredSongs.map((song) => (
                 <li key={song.id}>
                   <button
                     className={`library-modal-row ${activeSong?.id === song.id ? "active" : ""}`}
@@ -715,6 +660,18 @@ function App() {
                       setShowLibraryModal(false);
                     }}
                   >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(song.id)}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => {
+                        setSelectedIds((current) =>
+                          event.target.checked
+                            ? [...new Set([...current, song.id])]
+                            : current.filter((item) => item !== song.id),
+                        );
+                      }}
+                    />
                     <div>
                       <strong>{song.title}</strong>
                       <span>{song.artist ?? "Unknown artist"}</span>
@@ -728,6 +685,18 @@ function App() {
             </ul>
 
             <div className="modal-actions">
+              <button
+                className={deleteConfirmPending ? "danger-confirm" : "danger"}
+                onClick={() => void handleDeleteSelectedSongs()}
+                disabled={deleteLoading || selectedIds.length === 0}
+                onBlur={() => setDeleteConfirmPending(false)}
+              >
+                {deleteLoading
+                  ? "Deleting..."
+                  : deleteConfirmPending
+                    ? `Confirm delete (${selectedIds.length})`
+                    : `Delete${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
+              </button>
               <button onClick={() => setShowLibraryModal(false)}>Close</button>
             </div>
           </section>

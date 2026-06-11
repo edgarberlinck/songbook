@@ -31,7 +31,7 @@ body {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: 20px;
   height: 100%;
   padding: 20px;
@@ -49,10 +49,10 @@ body {
 
 .sidebar {
   border-radius: 28px;
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   overflow: hidden;
 }
 
@@ -73,8 +73,12 @@ body {
   font-size: 1.3rem;
 }
 
-.brand strong,
-.toolbar h1,
+.brand strong {
+  display: block;
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  letter-spacing: 0.01em;
+}
+
 .preview-heading h2 {
   display: block;
   font-family: "Iowan Old Style", "Palatino Linotype", serif;
@@ -112,7 +116,6 @@ textarea {
 }
 
 .segmented button,
-.tags button,
 .toolbar-actions button,
 .primary {
   padding: 10px 14px;
@@ -123,9 +126,7 @@ textarea {
 }
 
 .segmented button.active,
-.tags button.active,
 .toolbar-actions button:hover,
-.song-card.active,
 .primary {
   border-color: transparent;
   background: linear-gradient(135deg, var(--accent), #7cc9ff);
@@ -183,38 +184,39 @@ textarea {
   overflow: auto;
 }
 
-.song-card {
+.song-row {
   width: 100%;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px;
   text-align: left;
-  padding: 8px;
-}
-
-.song-card input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-}
-
-.song-card div {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  color: var(--text);
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
-.song-card strong {
-  font-size: 0.86rem;
+.song-row strong {
+  font-size: 0.83rem;
+  display: block;
 }
 
-.song-card span {
-  font-size: 0.76rem;
+.song-row span {
+  font-size: 0.74rem;
+  color: var(--muted);
 }
 
-.song-card small {
-  font-size: 0.7rem;
+.song-row.active,
+.song-row:hover {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), #7cc9ff);
+  color: white;
+}
+
+.song-row.active span,
+.song-row:hover span {
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .danger {
@@ -231,45 +233,186 @@ textarea {
   cursor: not-allowed;
 }
 
-.tags {
+.danger-confirm {
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.85);
+  color: white;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  animation: pulse-danger 600ms ease infinite alternate;
+}
+
+@keyframes pulse-danger {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.song-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+}
+
+.song-info-title {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.song-info-artist {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.song-info-meta {
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.song-info-meta span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.76rem;
+}
+
+.song-info-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.song-info-tags span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.song-info-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+  padding: 12px 0;
+}
+
+.controls-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.controls-grid button {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  color: var(--text);
+  padding: 8px 6px;
+  font-size: 0.78rem;
+  text-align: center;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.controls-grid button:hover {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), #7cc9ff);
+  color: white;
+}
+
+.recent-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  flex: 1;
+}
+
+.recent-section > header {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sidebar-status {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
+.library-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.library-modal-header h2 {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+}
+
+.library-modal-header span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.library-modal-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.library-filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .workspace {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
   gap: 16px;
 }
 
 .toolbar {
-  border-radius: 28px;
-  padding: 22px 26px;
+  border-radius: 20px;
+  padding: 14px 18px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  gap: 20px;
-}
-
-.toolbar h1,
-.preview-heading h2 {
-  margin: 0;
-  font-size: clamp(2rem, 3vw, 2.6rem);
-}
-
-.toolbar p {
-  margin: 6px 0 0;
-  color: var(--muted);
 }
 
 .toolbar-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-end;
+  gap: 8px;
 }
 
 .meta-strip {
@@ -451,7 +594,7 @@ textarea {
   color: var(--text);
   padding: 10px;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 10px;
   align-items: center;
 }
