@@ -66,6 +66,20 @@ impl SongService {
         Ok(refreshed.into())
     }
 
+    pub fn delete_song(&self, id: &str) -> Result<(), String> {
+        let songs = self.repository.read_all().map_err(|error| error.to_string())?;
+        let existing = songs
+            .into_iter()
+            .find(|song| song.id == id)
+            .ok_or_else(|| format!("Song with id '{id}' was not found"))?;
+
+        self.repository
+            .delete_song(&existing.path)
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
     pub fn preview_song(&self, id: &str, content: &str) -> Result<SongDto, String> {
         let songs = self.repository.read_all().map_err(|error| error.to_string())?;
         let existing = songs

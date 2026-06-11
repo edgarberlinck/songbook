@@ -9,6 +9,7 @@ pub fn run() {
             ui::commands::load_library,
             ui::commands::load_song,
             ui::commands::save_song,
+            ui::commands::delete_song,
             ui::commands::preview_song,
             ui::commands::create_song,
             ui::commands::import_song_from_url,

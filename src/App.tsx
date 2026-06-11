@@ -84,11 +84,41 @@ function App() {
   const [importUrl, setImportUrl] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [importLoading, setImportLoading] = useState(false);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const [recentSongIds, setRecentSongIds] = useState<string[]>(() => {
+    try {
+      const saved = window.localStorage.getItem("songbook.recentSongIds");
+      if (!saved) {
+        return [];
+      }
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed)
+        ? parsed.filter((value): value is string => typeof value === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const editorScrollRef = useRef<HTMLTextAreaElement | null>(null);
   const previewScrollRef = useRef<HTMLDivElement | null>(null);
   const syncOriginRef = useRef<"editor" | "preview" | null>(null);
 
   const importProvider = useMemo(() => detectProvider(importUrl), [importUrl]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "songbook.recentSongIds",
+      JSON.stringify(recentSongIds),
+    );
+  }, [recentSongIds]);
+
+  const markSongAsRecent = useCallback((id: string) => {
+    setRecentSongIds((current) =>
+      [id, ...current.filter((item) => item !== id)].slice(0, 50),
+    );
+  }, []);
 
   const syncScrollPosition = useCallback(
     (
@@ -154,6 +184,7 @@ function App() {
         setDraft(song.content);
         setSelectedIds((current) => (current.length ? current : [song.id]));
         setStatus(`Loaded ${payload.songs.length} songs`);
+        markSongAsRecent(song.id);
       } else {
         setActiveSong(null);
         setPreviewSong(null);
@@ -161,7 +192,7 @@ function App() {
         setStatus("No songs found in songs/");
       }
     },
-    [activeSong?.id],
+    [activeSong?.id, markSongAsRecent],
   );
 
   const toggleFavoriteFilter = () => {
@@ -207,6 +238,47 @@ function App() {
       setImportError(message);
     } finally {
       setImportLoading(false);
+    }
+  }
+
+  async function handleDeleteSelectedSongs() {
+    const idsToDelete = selectedIds.length
+      ? selectedIds
+      : activeSong
+        ? [activeSong.id]
+        : [];
+
+    if (!idsToDelete.length) {
+      setStatus("No songs selected for deletion");
+      return;
+    }
+
+    const confirmation = window.confirm(
+      `Delete ${idsToDelete.length} song${idsToDelete.length > 1 ? "s" : ""}? This cannot be undone.`,
+    );
+    if (!confirmation) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      await Promise.all(idsToDelete.map((id) => invoke("delete_song", { id })));
+
+      const deleted = new Set(idsToDelete);
+      const nextPreferred = library.songs.find(
+        (song) => !deleted.has(song.id),
+      )?.id;
+      setRecentSongIds((current) => current.filter((id) => !deleted.has(id)));
+      setSelectedIds(nextPreferred ? [nextPreferred] : []);
+      setStatus(
+        `Deleted ${idsToDelete.length} song${idsToDelete.length > 1 ? "s" : ""}`,
+      );
+      await refreshLibrary(nextPreferred);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatus(`Delete failed: ${message}`);
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -263,13 +335,40 @@ function App() {
       .sort(sorters[sortBy]);
   }, [library.songs, query, selectedTag, showFavoritesOnly, sortBy]);
 
+  const recentSongs = useMemo(() => {
+    const byId = new Map(library.songs.map((song) => [song.id, song]));
+    return recentSongIds
+      .map((id) => byId.get(id))
+      .filter((song): song is SongSummary => Boolean(song))
+      .slice(0, 3);
+  }, [library.songs, recentSongIds]);
+
+  const libraryModalSongs = useMemo(() => {
+    const normalized = libraryQuery.trim().toLowerCase();
+    return filteredSongs.filter((song) => {
+      if (!normalized) {
+        return true;
+      }
+      const haystack = [
+        song.title,
+        song.artist ?? "",
+        song.key ?? "",
+        song.tags.join(" "),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalized);
+    });
+  }, [filteredSongs, libraryQuery]);
+
   async function selectSong(id: string) {
     const song = await invoke<SongDetail>("load_song", { id });
     setActiveSong(song);
     setPreviewSong(song);
     setDraft(song.content);
-    setSelectedIds((current) => (current.includes(id) ? current : [id]));
+    setSelectedIds([id]);
     setStatus(`Opened ${song.title}`);
+    markSongAsRecent(song.id);
   }
 
   async function handleSave() {
@@ -398,11 +497,20 @@ function App() {
 
           <section className="library-section">
             <header>
-              <strong>Library</strong>
-              <span>{filteredSongs.length} songs</span>
+              <strong>Recent</strong>
+              <div className="library-actions">
+                <span>{recentSongs.length} songs</span>
+                <button
+                  className="danger"
+                  onClick={() => void handleDeleteSelectedSongs()}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? "Deleting..." : "Delete selected"}
+                </button>
+              </div>
             </header>
             <ul className="song-list">
-              {filteredSongs.map((song) => {
+              {recentSongs.map((song) => {
                 const active = activeSong?.id === song.id;
                 const selected = selectedIds.includes(song.id);
                 return (
@@ -468,6 +576,7 @@ function App() {
               >
                 New song
               </button>
+              <button onClick={() => setShowLibraryModal(true)}>Library</button>
               <button onClick={() => setShowImportModal(true)}>
                 Import song
               </button>
@@ -572,6 +681,58 @@ function App() {
           </div>
         </section>
       </main>
+
+      {showLibraryModal ? (
+        <div
+          className="modal-backdrop"
+          onClick={() => setShowLibraryModal(false)}
+        >
+          <section
+            className="library-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <h2>Library</h2>
+              <p>Pick a song to play.</p>
+            </header>
+
+            <label className="search">
+              <span>Search library</span>
+              <input
+                value={libraryQuery}
+                onChange={(event) => setLibraryQuery(event.target.value)}
+                placeholder="Title, artist, key, tag"
+              />
+            </label>
+
+            <ul className="library-modal-list">
+              {libraryModalSongs.map((song) => (
+                <li key={song.id}>
+                  <button
+                    className={`library-modal-row ${activeSong?.id === song.id ? "active" : ""}`}
+                    onClick={() => {
+                      void selectSong(song.id);
+                      setShowLibraryModal(false);
+                    }}
+                  >
+                    <div>
+                      <strong>{song.title}</strong>
+                      <span>{song.artist ?? "Unknown artist"}</span>
+                    </div>
+                    <small>
+                      {song.key ?? "—"} · {formatDate(song.lastModified)}
+                    </small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <div className="modal-actions">
+              <button onClick={() => setShowLibraryModal(false)}>Close</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {showImportModal ? (
         <div

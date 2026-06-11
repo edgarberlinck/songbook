@@ -53,4 +53,8 @@ impl FileSongRepository {
     pub fn write_song(&self, path: &str, content: &str) -> io::Result<()> {
         fs::write(path, content)
     }
+
+    pub fn delete_song(&self, path: &str) -> io::Result<()> {
+        fs::remove_file(path)
+    }
 }

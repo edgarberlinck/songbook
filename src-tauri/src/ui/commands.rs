@@ -45,6 +45,12 @@ pub fn save_song(id: String, content: String, state: State<'_, Mutex<AppState>>)
 }
 
 #[tauri::command]
+pub fn delete_song(id: String, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let guard = state.lock().map_err(|_| "Failed to access application state".to_string())?;
+    SongService::new(guard.root.clone())?.delete_song(&id)
+}
+
+#[tauri::command]
 pub fn preview_song(id: String, content: String, state: State<'_, Mutex<AppState>>) -> Result<SongDto, String> {
     let guard = state.lock().map_err(|_| "Failed to access application state".to_string())?;
     SongService::new(guard.root.clone())?.preview_song(&id, &content)

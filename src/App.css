@@ -31,7 +31,7 @@ body {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 280px 1fr;
   gap: 20px;
   height: 100%;
   padding: 20px;
@@ -167,13 +167,19 @@ textarea {
   align-items: center;
 }
 
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .song-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
   overflow: auto;
 }
 
@@ -182,21 +188,47 @@ textarea {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   text-align: left;
-  padding: 14px;
+  padding: 8px;
 }
 
 .song-card input {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   accent-color: var(--accent);
 }
 
 .song-card div {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+}
+
+.song-card strong {
+  font-size: 0.86rem;
+}
+
+.song-card span {
+  font-size: 0.76rem;
+}
+
+.song-card small {
+  font-size: 0.7rem;
+}
+
+.danger {
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.14);
+  color: #dc2626;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
+.danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .tags {
@@ -385,6 +417,77 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.library-modal {
+  width: min(760px, 100%);
+  border-radius: 24px;
+  padding: 22px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.library-modal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 52vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.library-modal-row {
+  width: 100%;
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.library-modal-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library-modal-row strong {
+  font-size: 0.9rem;
+}
+
+.library-modal-row span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.library-modal-row small {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.library-modal-row.active,
+.library-modal-row:hover {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), #7cc9ff);
+  color: white;
+}
+
+.library-modal-row.active span,
+.library-modal-row.active small,
+.library-modal-row:hover span,
+.library-modal-row:hover small {
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .import-modal h2 {
