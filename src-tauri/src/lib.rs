@@ -10,6 +10,8 @@ pub fn run() {
             ui::commands::load_song,
             ui::commands::save_song,
             ui::commands::preview_song,
+            ui::commands::create_song,
+            ui::commands::import_song_from_url,
             ui::commands::transpose_content,
         ])
         .run(tauri::generate_context!())

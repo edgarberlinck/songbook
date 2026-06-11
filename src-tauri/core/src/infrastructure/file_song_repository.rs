@@ -11,6 +11,10 @@ impl FileSongRepository {
         Self { songs_dir }
     }
 
+    pub fn songs_dir(&self) -> &Path {
+        &self.songs_dir
+    }
+
     pub fn read_all(&self) -> io::Result<Vec<Song>> {
         fs::create_dir_all(&self.songs_dir)?;
         let mut songs = Vec::new();

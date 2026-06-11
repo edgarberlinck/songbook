@@ -13,8 +13,16 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            root: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            root: workspace_root(),
         }
+    }
+}
+
+fn workspace_root() -> PathBuf {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    match manifest_dir.parent() {
+        Some(parent) => parent.to_path_buf(),
+        None => manifest_dir,
     }
 }
 
@@ -43,7 +51,18 @@ pub fn preview_song(id: String, content: String, state: State<'_, Mutex<AppState
 }
 
 #[tauri::command]
+pub fn create_song(state: State<'_, Mutex<AppState>>) -> Result<SongDto, String> {
+    let guard = state.lock().map_err(|_| "Failed to access application state".to_string())?;
+    SongService::new(guard.root.clone())?.create_song()
+}
+
+#[tauri::command]
+pub fn import_song_from_url(url: String, state: State<'_, Mutex<AppState>>) -> Result<SongDto, String> {
+    let guard = state.lock().map_err(|_| "Failed to access application state".to_string())?;
+    SongService::new(guard.root.clone())?.import_song_from_url(&url)
+}
+
+#[tauri::command]
 pub fn transpose_content(content: String, semitones: i32) -> Result<String, String> {
-    let root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    Ok(SongService::new(root)?.transpose_content(&content, semitones))
+    Ok(SongService::new(workspace_root())?.transpose_content(&content, semitones))
 }
